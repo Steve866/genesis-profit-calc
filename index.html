@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Genesis Peptides — Sales Profit Calculator</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .num { font-variant-numeric: tabular-nums; }
+  select, input { transition: border-color 0.15s, box-shadow 0.15s; }
+  select:focus, input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+  .row-enter { animation: row-enter 0.25s ease; }
+  @keyframes row-enter { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  .tier-badge { transition: all 0.2s ease; }
+  .tier-badge.upgraded { animation: pop 0.4s ease; }
+  @keyframes pop { 0%{transform:scale(1)} 50%{transform:scale(1.15)} 100%{transform:scale(1)} }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+<!-- Password gate -->
+<div id="gate" class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-slate-900 to-indigo-900 hidden">
+  <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+    <div class="text-xs uppercase tracking-wider text-slate-400 mb-1">Genesis Peptides</div>
+    <h2 class="text-2xl font-semibold text-slate-900 mb-1">Sales Profit Calculator</h2>
+    <p class="text-sm text-slate-500 mb-6">Internal tool. Enter the access password to continue.</p>
+    <form id="gateForm">
+      <input id="gatePwd" type="password" autocomplete="off" placeholder="Password"
+        class="w-full bg-white border border-slate-300 rounded-lg px-4 py-3 text-sm mb-3" autofocus />
+      <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded-lg">Unlock</button>
+      <div id="gateError" class="text-sm text-red-600 mt-3 hidden">Incorrect password.</div>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="max-w-7xl mx-auto px-6 py-8" style="display:none">
+
+  <header class="mb-6 flex items-end justify-between">
+    <div>
+      <h1 class="text-3xl font-semibold tracking-tight">Profit Calculator</h1>
+      <p class="text-slate-500 mt-1">Build a multi-peptide order. Opal tier auto-applies based on total units. Compared to Limitless retail.</p>
+    </div>
+    <div class="text-right">
+      <div class="text-xs uppercase tracking-wider text-slate-400">Genesis Peptides</div>
+      <div class="text-sm text-slate-600">Sales tool · April 2026</div>
+    </div>
+  </header>
+
+  <!-- Tier indicator -->
+  <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-4 flex items-center gap-6">
+    <div>
+      <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total units in order</div>
+      <div class="text-3xl font-semibold num mt-1" id="totalUnits">0</div>
+    </div>
+    <div class="h-12 w-px bg-slate-200"></div>
+    <div>
+      <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Opal tier applied</div>
+      <div class="flex items-center gap-2 mt-1">
+        <span id="tierBadge" class="tier-badge inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-slate-100 text-slate-700">Base</span>
+        <span id="tierDiscount" class="text-sm text-slate-500 num"></span>
+      </div>
+    </div>
+    <div class="h-12 w-px bg-slate-200"></div>
+    <div class="flex-1">
+      <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Unlock next tier</div>
+      <div class="text-sm text-slate-700 mt-1" id="tierHint">Add 50 units to unlock Tier 1 (−5%)</div>
+      <div class="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
+        <div id="tierProgress" class="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full transition-all duration-300" style="width:0%"></div>
+      </div>
+    </div>
+    <button id="clearAll" class="text-xs font-medium text-slate-500 hover:text-red-600 px-3 py-2 rounded border border-slate-200 hover:border-red-300">Clear all</button>
+  </div>
+
+  <!-- Order Lines Table -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm mb-6 overflow-hidden">
+
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 border-b border-slate-200">
+        <tr class="text-xs font-medium text-slate-500 uppercase tracking-wider">
+          <th class="text-left px-4 py-3 w-[28%]">Peptide</th>
+          <th class="text-right px-3 py-3 w-[8%]">Qty</th>
+          <th class="text-right px-3 py-3 w-[11%]">Opal cost/ea</th>
+          <th class="text-right px-3 py-3 w-[11%]">Your retail/ea
+            <div class="text-[10px] normal-case text-slate-400 tracking-normal">vs. Limitless</div>
+          </th>
+          <th class="text-right px-3 py-3 w-[10%]">Line cost</th>
+          <th class="text-right px-3 py-3 w-[10%]">Line revenue</th>
+          <th class="text-right px-3 py-3 w-[10%]">Line profit</th>
+          <th class="text-right px-3 py-3 w-[8%]">Margin</th>
+          <th class="w-10"></th>
+        </tr>
+      </thead>
+      <tbody id="cartBody" class="divide-y divide-slate-100"></tbody>
+      <tfoot class="bg-slate-50 border-t-2 border-slate-300">
+        <tr class="text-sm font-semibold">
+          <td class="px-4 py-3 text-slate-700" colspan="2"><span id="footerLineCount">0 lines</span> · <span id="footerUnitCount" class="num">0 units</span></td>
+          <td class="text-right px-3 py-3 text-slate-500 text-xs font-normal">Totals →</td>
+          <td></td>
+          <td class="text-right px-3 py-3 num" id="totalCost">$0.00</td>
+          <td class="text-right px-3 py-3 num" id="totalRevenue">$0.00</td>
+          <td class="text-right px-3 py-3 num text-emerald-600" id="totalProfit">$0.00</td>
+          <td class="text-right px-3 py-3 num text-slate-600" id="weightedMargin">—</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Add line form -->
+    <div class="bg-slate-50 border-t border-slate-200 p-4">
+      <div class="flex items-end gap-3">
+        <div class="flex-1 min-w-0">
+          <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Add peptide</label>
+          <select id="addProduct" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm"></select>
+        </div>
+        <div class="w-24">
+          <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Qty</label>
+          <input id="addQty" type="number" min="1" value="10" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm num" />
+        </div>
+        <div class="w-32">
+          <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Retail $/vial</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+            <input id="addRetail" type="number" step="0.01" min="0" class="w-full bg-white border border-slate-300 rounded-lg pl-6 pr-3 py-2 text-sm num" placeholder="—"/>
+          </div>
+        </div>
+        <button id="addBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-5 py-2 rounded-lg">Add to order</button>
+      </div>
+      <div class="mt-2 text-xs text-slate-500" id="addHint"></div>
+    </div>
+
+  </div>
+
+  <!-- Summary cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+
+    <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+      <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Cost (Opal)</div>
+      <div class="text-2xl font-semibold num mt-1" id="sCost">$0.00</div>
+      <div class="text-xs text-slate-500 mt-1" id="sCostDetail">No items</div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+      <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Revenue</div>
+      <div class="text-2xl font-semibold num mt-1" id="sRev">$0.00</div>
+      <div class="text-xs text-slate-500 mt-1" id="sRevDetail">At clinic retail</div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+      <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Weighted Margin</div>
+      <div class="text-2xl font-semibold num mt-1" id="sMargin">—</div>
+      <div class="text-xs text-slate-500 mt-1" id="sMarkup">— markup</div>
+    </div>
+
+    <div class="bg-indigo-600 text-white rounded-xl p-5 shadow-sm">
+      <div class="text-xs font-medium text-indigo-200 uppercase tracking-wider">Gross Profit</div>
+      <div class="text-2xl font-semibold num mt-1" id="sProfit">$0.00</div>
+      <div class="text-xs text-indigo-200 mt-1" id="sProfitDetail">Per order</div>
+    </div>
+
+  </div>
+
+  <!-- Scenario grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+    <!-- What-if: different tiers -->
+    <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+      <h3 class="text-sm font-semibold text-slate-700 mb-1">Same order, different tiers</h3>
+      <p class="text-xs text-slate-500 mb-4">What your profit looks like at each Opal volume tier (revenue held constant).</p>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs text-slate-500 uppercase tracking-wider">
+            <th class="text-left pb-2">Tier</th>
+            <th class="text-right pb-2">Total cost</th>
+            <th class="text-right pb-2">Profit</th>
+            <th class="text-right pb-2">Margin</th>
+          </tr>
+        </thead>
+        <tbody id="tierTable" class="divide-y divide-slate-100 num"></tbody>
+      </table>
+    </div>
+
+    <!-- Monthly & annual run-rate -->
+    <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+      <h3 class="text-sm font-semibold text-slate-700 mb-1">Run-rate upside</h3>
+      <p class="text-xs text-slate-500 mb-4">If this clinic orders this cart every month.</p>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Monthly gross profit</div>
+          <div class="text-2xl font-semibold num text-emerald-600 mt-1" id="rrMonth">$0.00</div>
+        </div>
+        <div>
+          <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Annual gross profit</div>
+          <div class="text-2xl font-semibold num text-emerald-600 mt-1" id="rrYear">$0.00</div>
+        </div>
+        <div>
+          <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Clinic spend / month</div>
+          <div class="text-xl font-semibold num mt-1" id="rrSpend">$0.00</div>
+        </div>
+        <div>
+          <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Clinic spend / year</div>
+          <div class="text-xl font-semibold num mt-1" id="rrSpendYr">$0.00</div>
+        </div>
+      </div>
+      <div class="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-500" id="rrNote">
+        Build an order above to see projected run-rate.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Sales pitch -->
+  <div class="bg-gradient-to-r from-slate-900 to-indigo-900 text-white rounded-xl p-6 shadow-sm mb-4">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-sm font-semibold uppercase tracking-wider text-indigo-200">Sales Pitch Summary</h3>
+      <button id="copyPitch" class="text-xs font-medium text-indigo-200 hover:text-white border border-indigo-700 hover:border-indigo-500 px-3 py-1 rounded">Copy</button>
+    </div>
+    <div class="text-lg leading-relaxed" id="pitch">Add peptides to the order to generate a pitch summary.</div>
+  </div>
+
+  <footer class="text-center text-xs text-slate-400 mt-8">
+    Data source: Master Price Model.xlsx · Opal tiers: Base / 50+ (−5%) / 100+ (−10%) / 150+ (−15%) · Tier applied to entire order based on total units
+  </footer>
+
+</div>
+
+<script>
+// ---- Password gate ----
+const PWD_HASH = '1ba4dc1c0bfa792dac52ba0652964809628c667bd7cb44acc5ac254b544cfb26';
+async function sha256(s) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+function showApp() {
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('app').style.display = '';
+}
+function showGate() {
+  document.getElementById('gate').classList.remove('hidden');
+  document.getElementById('app').style.display = 'none';
+  setTimeout(() => document.getElementById('gatePwd')?.focus(), 50);
+}
+(async () => {
+  if (sessionStorage.getItem('gp_auth') === PWD_HASH) { showApp(); return; }
+  showGate();
+  document.getElementById('gateForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const entered = document.getElementById('gatePwd').value;
+    const h = await sha256(entered);
+    if (h === PWD_HASH) {
+      sessionStorage.setItem('gp_auth', h);
+      showApp();
+    } else {
+      document.getElementById('gateError').classList.remove('hidden');
+      document.getElementById('gatePwd').value = '';
+    }
+  });
+})();
+
+// ---- App data ----
+const PRODUCTS = [{"name": "Adipotide (5mg)", "opal_base": 23.52, "opal_t1": 21.56, "opal_t2": 19.6, "opal_t3": 17.64, "lim_retail": null, "lim_lowest": null}, {"name": "AOD 9604 (10mg)", "opal_base": 47.04, "opal_t1": 43.12, "opal_t2": 39.2, "opal_t3": 35.28, "lim_retail": 46.19, "lim_lowest": 23.09}, {"name": "ARA290 (5mg)", "opal_base": 20.58, "opal_t1": 18.86, "opal_t2": 17.15, "opal_t3": 15.44, "lim_retail": 96.99, "lim_lowest": 48.49}, {"name": "BPC-157 (10mg)", "opal_base": 31.16, "opal_t1": 28.57, "opal_t2": 25.97, "opal_t3": 23.37, "lim_retail": 99.99, "lim_lowest": 49.99}, {"name": "BPC-157 (5mg)", "opal_base": 29.4, "opal_t1": 26.95, "opal_t2": 24.5, "opal_t3": 22.05, "lim_retail": 99.99, "lim_lowest": 49.99}, {"name": "BPC-157 + TB-500 (5mg+5mg)", "opal_base": 29.4, "opal_t1": 26.95, "opal_t2": 24.5, "opal_t3": 22.05, "lim_retail": 77.99, "lim_lowest": 38.99}, {"name": "BPC-157 + TB-500 (10mg+10mg)", "opal_base": 31.16, "opal_t1": 28.57, "opal_t2": 25.97, "opal_t3": 23.37, "lim_retail": 99.99, "lim_lowest": 49.99}, {"name": "BPC-157 + TB-500 + GHK-Cu (10mg+10mg+10mg)", "opal_base": 31.16, "opal_t1": 28.57, "opal_t2": 25.97, "opal_t3": 23.37, "lim_retail": 99.99, "lim_lowest": 49.99}, {"name": "BPC157 + Thymosin Beta-4 (5mg+5mg)", "opal_base": 29.4, "opal_t1": 26.95, "opal_t2": 24.5, "opal_t3": 22.05, "lim_retail": 77.99, "lim_lowest": 38.99}, {"name": "BPC157 + Thymosin Beta-4 (10mg+10mg)", "opal_base": 31.16, "opal_t1": 28.57, "opal_t2": 25.97, "opal_t3": 23.37, "lim_retail": 99.99, "lim_lowest": 49.99}, {"name": "Cagrilintide (10mg)", "opal_base": 82.32, "opal_t1": 75.46, "opal_t2": 68.6, "opal_t3": 61.74, "lim_retail": 115.99, "lim_lowest": null}, {"name": "Cagrilintide (5mg)", "opal_base": 47.04, "opal_t1": 43.12, "opal_t2": 39.2, "opal_t3": 35.28, "lim_retail": 115.99, "lim_lowest": 57.99}, {"name": "Cardiogen (20mg)", "opal_base": 32.34, "opal_t1": 29.64, "opal_t2": 26.95, "opal_t3": 24.25, "lim_retail": null, "lim_lowest": null}, {"name": "Chonluten (20mg)", "opal_base": 29.99, "opal_t1": 27.49, "opal_t2": 24.99, "opal_t3": 22.49, "lim_retail": null, "lim_lowest": null}, {"name": "CJC 1295 with DAC (10mg)", "opal_base": 39.98, "opal_t1": 36.65, "opal_t2": 33.32, "opal_t3": 29.99, "lim_retail": null, "lim_lowest": null}, {"name": "CJC 1295 with DAC (2mg)", "opal_base": 11.76, "opal_t1": 10.78, "opal_t2": 9.8, "opal_t3": 8.82, "lim_retail": null, "lim_lowest": null}, {"name": "CJC 1295 with DAC (5mg)", "opal_base": 20.58, "opal_t1": 18.86, "opal_t2": 17.15, "opal_t3": 15.44, "lim_retail": null, "lim_lowest": null}, {"name": "CJC-1295 (no DAC) + Ipamorelin (5mg+5mg)", "opal_base": 35.86, "opal_t1": 32.87, "opal_t2": 29.89, "opal_t3": 26.9, "lim_retail": 60.99, "lim_lowest": 30.5}, {"name": "CJC-1295 No DAC (10mg)", "opal_base": 39.98, "opal_t1": 36.65, "opal_t2": 33.32, "opal_t3": 29.99, "lim_retail": 120.99, "lim_lowest": 60.49}, {"name": "CJC-1295 No DAC (5mg)", "opal_base": 20.58, "opal_t1": 18.86, "opal_t2": 17.15, "opal_t3": 15.44, "lim_retail": 60.99, "lim_lowest": 30.5}, {"name": "CJC1295 (No DAC) + GHRP-2 (5mg+5mg)", "opal_base": 35.86, "opal_t1": 32.87, "opal_t2": 29.89, "opal_t3": 26.9, "lim_retail": 60.99, "lim_lowest": 30.5}, {"name": "CJC1295 (No DAC) + GHRP-6 (5mg+5mg)", "opal_base": 35.86, "opal_t1": 32.87, "opal_t2": 29.89, "opal_t3": 26.9, "lim_retail": 60.99, "lim_lowest": 30.5}, {"name": "CJC1295 no DAC + Ipamorelin (2mg+2mg)", "opal_base": 92.31, "opal_t1": 84.62, "opal_t2": 76.93, "opal_t3": 69.23, "lim_retail": 156.99, "lim_lowest": 78.5}, {"name": "CJC1295 no DAC + Ipamorelin + GHRP2 (2mg+2mg+2mg)", "opal_base": 92.31, "opal_t1": 84.62, "opal_t2": 76.93, "opal_t3": 69.23, "lim_retail": 156.99, "lim_lowest": 78.5}, {"name": "DSIP (10mg)", "opal_base": 28.81, "opal_t1": 26.41, "opal_t2": 24.01, "opal_t3": 21.61, "lim_retail": 57.99, "lim_lowest": 29.0}, {"name": "DSIP (2mg)", "opal_base": 11.76, "opal_t1": 10.78, "opal_t2": 9.8, "opal_t3": 8.82, "lim_retail": 57.99, "lim_lowest": 29.0}, {"name": "DSIP (5mg)", "opal_base": 17.64, "opal_t1": 16.17, "opal_t2": 14.7, "opal_t3": 13.23, "lim_retail": 57.99, "lim_lowest": 29.0}, {"name": "Epitalon (20mg)", "opal_base": 52.92, "opal_t1": 48.51, "opal_t2": 44.1, "opal_t3": 39.69, "lim_retail": 109.99, "lim_lowest": 54.99}, {"name": "Epitalon (10mg)", "opal_base": 19.4, "opal_t1": 17.79, "opal_t2": 16.17, "opal_t3": 14.55, "lim_retail": 109.99, "lim_lowest": 54.99}, {"name": "GHK-CU (50mg)", "opal_base": 17.64, "opal_t1": 16.17, "opal_t2": 14.7, "opal_t3": 13.23, "lim_retail": 146.99, "lim_lowest": 73.5}, {"name": "GHK-Cu (500mg)", "opal_base": 76.44, "opal_t1": 70.07, "opal_t2": 63.7, "opal_t3": 57.33, "lim_retail": 146.99, "lim_lowest": 73.5}, {"name": "GHRP-2 (10mg)", "opal_base": 17.05, "opal_t1": 15.63, "opal_t2": 14.21, "opal_t3": 12.79, "lim_retail": null, "lim_lowest": null}, {"name": "GHRP-6 (10mg)", "opal_base": 16.46, "opal_t1": 15.09, "opal_t2": 13.72, "opal_t3": 12.35, "lim_retail": null, "lim_lowest": null}, {"name": "GHRP-6 + Hgh Frag (10mg)", "opal_base": 16.46, "opal_t1": 15.09, "opal_t2": 13.72, "opal_t3": 12.35, "lim_retail": null, "lim_lowest": null}, {"name": "Gonadorelin (2mg)", "opal_base": 14.7, "opal_t1": 13.47, "opal_t2": 12.25, "opal_t3": 11.03, "lim_retail": null, "lim_lowest": null}, {"name": "Gonadorelin (5mg)", "opal_base": 26.46, "opal_t1": 24.25, "opal_t2": 22.05, "opal_t3": 19.84, "lim_retail": null, "lim_lowest": null}, {"name": "Gonadorelin (10mg)", "opal_base": 44.1, "opal_t1": 40.42, "opal_t2": 36.75, "opal_t3": 33.08, "lim_retail": null, "lim_lowest": null}, {"name": "Hexarelin (5mg)", "opal_base": 23.52, "opal_t1": 21.56, "opal_t2": 19.6, "opal_t3": 17.64, "lim_retail": null, "lim_lowest": null}, {"name": "IGF1-lr3 (1mg)", "opal_base": 35.28, "opal_t1": 32.34, "opal_t2": 29.4, "opal_t3": 26.46, "lim_retail": null, "lim_lowest": null}, {"name": "IGF1-Lr3 (0.1mg)", "opal_base": 8.82, "opal_t1": 8.09, "opal_t2": 7.35, "opal_t3": 6.62, "lim_retail": null, "lim_lowest": null}, {"name": "IGF1-Lr3 (0.5mg)", "opal_base": 35.28, "opal_t1": 32.34, "opal_t2": 29.4, "opal_t3": 26.46, "lim_retail": null, "lim_lowest": null}, {"name": "Ipamorelin (10mg)", "opal_base": 31.16, "opal_t1": 28.57, "opal_t2": 25.97, "opal_t3": 23.37, "lim_retail": 89.99, "lim_lowest": null}, {"name": "Ipamorelin (5mg)", "opal_base": 23.52, "opal_t1": 21.56, "opal_t2": 19.6, "opal_t3": 17.64, "lim_retail": 49.99, "lim_lowest": 25.0}, {"name": "Kisspeptin (10mg)", "opal_base": 37.84, "opal_t1": 34.68, "opal_t2": 31.53, "opal_t3": 28.38, "lim_retail": 64.35, "lim_lowest": 32.17}, {"name": "Kisspeptin-10 (5mg)", "opal_base": 26.46, "opal_t1": 24.25, "opal_t2": 22.05, "opal_t3": 19.84, "lim_retail": 64.35, "lim_lowest": 32.17}, {"name": "KPV (5mg)", "opal_base": 26.46, "opal_t1": 24.25, "opal_t2": 22.05, "opal_t3": 19.84, "lim_retail": 48.99, "lim_lowest": 24.5}, {"name": "Liraglutide (5mg)", "opal_base": 23.52, "opal_t1": 21.56, "opal_t2": 19.6, "opal_t3": 17.64, "lim_retail": null, "lim_lowest": null}, {"name": "LL-37 (5mg)", "opal_base": 26.46, "opal_t1": 24.25, "opal_t2": 22.05, "opal_t3": 19.84, "lim_retail": 82.5, "lim_lowest": 41.25}, {"name": "Melanotan 1 (10mg)", "opal_base": 29.39, "opal_t1": 26.94, "opal_t2": 24.5, "opal_t3": 22.05, "lim_retail": 49.99, "lim_lowest": 25.0}, {"name": "Melanotan 2", "opal_base": 16.46, "opal_t1": 15.09, "opal_t2": 13.72, "opal_t3": 12.34, "lim_retail": null, "lim_lowest": null}, {"name": "MGF IGF-Ec (2mg)", "opal_base": 22.93, "opal_t1": 21.02, "opal_t2": 19.11, "opal_t3": 17.2, "lim_retail": null, "lim_lowest": null}, {"name": "MOTS-c (10mg)", "opal_base": 25.28, "opal_t1": 23.18, "opal_t2": 21.07, "opal_t3": 18.96, "lim_retail": 99.99, "lim_lowest": 49.99}, {"name": "MOTS-C (5mg)", "opal_base": 35.28, "opal_t1": 32.34, "opal_t2": 29.4, "opal_t3": 26.46, "lim_retail": 99.99, "lim_lowest": 49.99}, {"name": "NAD+ (750mg)", "opal_base": 58.8, "opal_t1": 53.9, "opal_t2": 49.0, "opal_t3": 44.1, "lim_retail": null, "lim_lowest": null}, {"name": "NAD+ (1000mg)", "opal_base": 41.16, "opal_t1": 37.73, "opal_t2": 34.3, "opal_t3": 30.87, "lim_retail": null, "lim_lowest": null}, {"name": "NAD+ (500mg)", "opal_base": 25.87, "opal_t1": 23.72, "opal_t2": 21.56, "opal_t3": 19.4, "lim_retail": null, "lim_lowest": null}, {"name": "P21 (5mg)", "opal_base": 64.68, "opal_t1": 59.29, "opal_t2": 53.9, "opal_t3": 48.51, "lim_retail": 181.49, "lim_lowest": null}, {"name": "PEG-MGF (2mg)", "opal_base": 22.93, "opal_t1": 21.02, "opal_t2": 19.11, "opal_t3": 17.2, "lim_retail": null, "lim_lowest": null}, {"name": "PEG-MGF (5mg)", "opal_base": 37.04, "opal_t1": 33.96, "opal_t2": 30.87, "opal_t3": 27.78, "lim_retail": null, "lim_lowest": null}, {"name": "Pinealon (20mg)", "opal_base": 32.34, "opal_t1": 29.64, "opal_t2": 26.95, "opal_t3": 24.25, "lim_retail": null, "lim_lowest": null}, {"name": "PT-141 (10mg)", "opal_base": 20.57, "opal_t1": 18.86, "opal_t2": 17.15, "opal_t3": 15.43, "lim_retail": 51.69, "lim_lowest": 25.84}, {"name": "Retatrutide (5mg)", "opal_base": 44.1, "opal_t1": 40.42, "opal_t2": 36.75, "opal_t3": 33.08, "lim_retail": 189.99, "lim_lowest": 95.0}, {"name": "Retatrutide (10mg)", "opal_base": 70.56, "opal_t1": 64.68, "opal_t2": 58.8, "opal_t3": 52.92, "lim_retail": 189.99, "lim_lowest": 95.0}, {"name": "Retatrutide (15mg)", "opal_base": 70.56, "opal_t1": 64.68, "opal_t2": 58.8, "opal_t3": 52.92, "lim_retail": 189.99, "lim_lowest": 95.0}, {"name": "Selank (10mg)", "opal_base": 30.58, "opal_t1": 28.03, "opal_t2": 25.48, "opal_t3": 22.93, "lim_retail": 86.99, "lim_lowest": 43.49}, {"name": "Semaglutide (5mg)", "opal_base": 38.28, "opal_t1": 35.09, "opal_t2": 31.9, "opal_t3": 28.71, "lim_retail": 98.99, "lim_lowest": 49.49}, {"name": "Semaglutide (10mg)", "opal_base": 38.28, "opal_t1": 35.09, "opal_t2": 31.9, "opal_t3": 28.71, "lim_retail": 98.99, "lim_lowest": 49.49}, {"name": "Semaglutide (15mg)", "opal_base": 38.28, "opal_t1": 35.09, "opal_t2": 31.9, "opal_t3": 28.71, "lim_retail": 98.99, "lim_lowest": 49.49}, {"name": "Semaglutide (3mg)", "opal_base": 38.28, "opal_t1": 35.09, "opal_t2": 31.9, "opal_t3": 28.71, "lim_retail": 98.99, "lim_lowest": 49.49}, {"name": "Semax (5mg)", "opal_base": 26.46, "opal_t1": 24.25, "opal_t2": 22.05, "opal_t3": 19.84, "lim_retail": 43.45, "lim_lowest": 21.73}, {"name": "Sermorelin (10mg)", "opal_base": 46.45, "opal_t1": 42.58, "opal_t2": 38.71, "opal_t3": 34.84, "lim_retail": 47.99, "lim_lowest": 24.0}, {"name": "Sermorelin (5mg)", "opal_base": 26.46, "opal_t1": 24.25, "opal_t2": 22.05, "opal_t3": 19.84, "lim_retail": 47.99, "lim_lowest": 24.0}, {"name": "Sermorelin + GHRP-6 + GHRP-2 (2mg+2mg+2mg)", "opal_base": 26.46, "opal_t1": 24.25, "opal_t2": 22.05, "opal_t3": 19.84, "lim_retail": 47.99, "lim_lowest": 24.0}, {"name": "Sermorelin + Ipamorelin (5mg+5mg)", "opal_base": 26.46, "opal_t1": 24.25, "opal_t2": 22.05, "opal_t3": 19.84, "lim_retail": 47.99, "lim_lowest": 24.0}, {"name": "SS-31 (25mg)", "opal_base": 49.98, "opal_t1": 45.81, "opal_t2": 41.65, "opal_t3": 37.48, "lim_retail": 239.99, "lim_lowest": 120.0}, {"name": "SS31 (20mg)", "opal_base": 49.98, "opal_t1": 45.81, "opal_t2": 41.65, "opal_t3": 37.48, "lim_retail": 239.99, "lim_lowest": 120.0}, {"name": "Survodutide (6mg)", "opal_base": 99.96, "opal_t1": 91.63, "opal_t2": 83.3, "opal_t3": 74.97, "lim_retail": null, "lim_lowest": null}, {"name": "TB-500 (Thymosin Beta-4) (10mg)", "opal_base": 36.46, "opal_t1": 33.42, "opal_t2": 30.38, "opal_t3": 27.34, "lim_retail": 169.99, "lim_lowest": 85.0}, {"name": "TB500 (Thymosin Beta-4) (2mg)", "opal_base": 22.93, "opal_t1": 21.02, "opal_t2": 19.11, "opal_t3": 17.2, "lim_retail": 169.99, "lim_lowest": 85.0}, {"name": "TB500 (Thymosin Beta-4) (5mg)", "opal_base": 45.86, "opal_t1": 42.04, "opal_t2": 38.22, "opal_t3": 34.4, "lim_retail": 77.99, "lim_lowest": 38.99}, {"name": "Tesamorelin (10mg)", "opal_base": 44.1, "opal_t1": 40.42, "opal_t2": 36.75, "opal_t3": 33.08, "lim_retail": 135.99, "lim_lowest": 68.0}, {"name": "Tesamorelin (2mg)", "opal_base": 20.58, "opal_t1": 18.86, "opal_t2": 17.15, "opal_t3": 15.44, "lim_retail": 135.99, "lim_lowest": 68.0}, {"name": "Tesamorelin + CJC-1295 (No DAC)+ Ipamorelin (6mg+3mg+3mg)", "opal_base": 25.28, "opal_t1": 23.18, "opal_t2": 21.07, "opal_t3": 18.96, "lim_retail": 135.99, "lim_lowest": 68.0}, {"name": "Tesamorelin + Ipamorelin (7mg+3mg)", "opal_base": 25.28, "opal_t1": 23.18, "opal_t2": 21.07, "opal_t3": 18.96, "lim_retail": 135.99, "lim_lowest": 68.0}, {"name": "Testagen (20mg)", "opal_base": 32.34, "opal_t1": 29.64, "opal_t2": 26.95, "opal_t3": 24.25, "lim_retail": 62.99, "lim_lowest": 31.5}, {"name": "Thymalin (10mg)", "opal_base": 21.17, "opal_t1": 19.4, "opal_t2": 17.64, "opal_t3": 15.88, "lim_retail": 274.99, "lim_lowest": 137.5}, {"name": "Thymalin (20mg)", "opal_base": 64.68, "opal_t1": 59.29, "opal_t2": 53.9, "opal_t3": 48.51, "lim_retail": 274.99, "lim_lowest": 137.5}, {"name": "Thymalin (30mg)", "opal_base": 91.14, "opal_t1": 83.55, "opal_t2": 75.95, "opal_t3": 68.36, "lim_retail": 274.99, "lim_lowest": 137.5}, {"name": "Thymosin Alpha 1 (5mg)", "opal_base": 38.22, "opal_t1": 35.03, "opal_t2": 31.85, "opal_t3": 28.66, "lim_retail": 131.99, "lim_lowest": 66.0}, {"name": "Thymosin Alpha 1 (10mg)", "opal_base": 41.16, "opal_t1": 37.73, "opal_t2": 34.3, "opal_t3": 30.87, "lim_retail": 131.99, "lim_lowest": 66.0}, {"name": "Tirzepatide (10mg)", "opal_base": 38.28, "opal_t1": 35.09, "opal_t2": 31.9, "opal_t3": 28.71, "lim_retail": null, "lim_lowest": null}, {"name": "Tirzepatide (15mg)", "opal_base": 49.39, "opal_t1": 45.28, "opal_t2": 41.16, "opal_t3": 37.04, "lim_retail": null, "lim_lowest": null}, {"name": "Tirzepatide (30mg)", "opal_base": 86.44, "opal_t1": 79.23, "opal_t2": 72.03, "opal_t3": 64.83, "lim_retail": null, "lim_lowest": null}, {"name": "Tirzepatide (60mg)", "opal_base": 133.77, "opal_t1": 122.62, "opal_t2": 111.47, "opal_t3": 100.33, "lim_retail": null, "lim_lowest": null}, {"name": "Vesilute (20mg)", "opal_base": 49.98, "opal_t1": 45.81, "opal_t2": 41.65, "opal_t3": 37.48, "lim_retail": null, "lim_lowest": null}, {"name": "Vesugen (20mg)", "opal_base": 32.34, "opal_t1": 29.64, "opal_t2": 26.95, "opal_t3": 24.25, "lim_retail": null, "lim_lowest": null}, {"name": "Vilon (20mg)", "opal_base": 23.52, "opal_t1": 21.56, "opal_t2": 19.6, "opal_t3": 17.64, "lim_retail": null, "lim_lowest": null}];
+
+const $ = id => document.getElementById(id);
+const fmt = n => (n == null || isNaN(n)) ? '—' : '$' + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const fmtPct = n => (n == null || isNaN(n)) ? '—' : (n * 100).toFixed(1) + '%';
+const fmtX = n => (n == null || isNaN(n) || !isFinite(n)) ? '—' : n.toFixed(2) + '×';
+
+const findProduct = name => PRODUCTS.find(p => p.name === name);
+
+// Tier logic — applies to total units across the whole order
+function tierFor(totalUnits) {
+  if (totalUnits >= 150) return 'opal_t3';
+  if (totalUnits >= 100) return 'opal_t2';
+  if (totalUnits >= 50)  return 'opal_t1';
+  return 'opal_base';
+}
+const TIER_META = {
+  opal_base: { label: 'Base',          discount: 0.00, nextUnits: 50,  nextLabel: 'Tier 1 (−5%)'  },
+  opal_t1:   { label: 'Tier 1 (50+)',  discount: 0.05, nextUnits: 100, nextLabel: 'Tier 2 (−10%)' },
+  opal_t2:   { label: 'Tier 2 (100+)', discount: 0.10, nextUnits: 150, nextLabel: 'Tier 3 (−15%)' },
+  opal_t3:   { label: 'Tier 3 (150+)', discount: 0.15, nextUnits: null, nextLabel: 'Max tier' },
+};
+
+// State — cart lines
+let cart = JSON.parse(localStorage.getItem('gp_cart') || '[]');
+let lastTier = null;
+
+// Populate product dropdowns
+const sorted = [...PRODUCTS].sort((a, b) => a.name.localeCompare(b.name));
+const addSel = $('addProduct');
+sorted.forEach(p => {
+  const opt = document.createElement('option');
+  opt.value = p.name;
+  opt.textContent = p.name + (p.lim_retail ? '' : '  (no benchmark)');
+  addSel.appendChild(opt);
+});
+
+function updateAddHint() {
+  const p = findProduct(addSel.value);
+  if (!p) return;
+  const qty = parseInt($('addQty').value) || 0;
+  const projTier = tierFor(totalUnits() + qty);
+  const cost = p[projTier];
+  const lim = p.lim_retail;
+  let h = `Opal cost at ${TIER_META[projTier].label}: ${fmt(cost)}/vial`;
+  if (lim) h += ` · Limitless retail: ${fmt(lim)} · spread ${fmt(lim - cost)} (${fmtPct((lim - cost) / cost)} headroom)`;
+  $('addHint').textContent = h;
+
+  // Auto-fill retail if empty
+  if (!$('addRetail').value && lim != null) {
+    $('addRetail').placeholder = lim.toFixed(2);
+  }
+}
+
+addSel.addEventListener('change', () => { $('addRetail').value = ''; updateAddHint(); });
+$('addQty').addEventListener('input', updateAddHint);
+$('addRetail').addEventListener('input', updateAddHint);
+
+$('addBtn').addEventListener('click', () => {
+  const name = addSel.value;
+  const p = findProduct(name);
+  if (!p) return;
+  const qty = Math.max(1, parseInt($('addQty').value) || 1);
+  let retail = parseFloat($('addRetail').value);
+  if (!retail || isNaN(retail)) retail = p.lim_retail || p.opal_base * 2.5;
+
+  // Merge if same SKU already present
+  const existing = cart.find(c => c.name === name);
+  if (existing) {
+    existing.qty += qty;
+    existing.retail = retail;
+  } else {
+    cart.push({ id: Date.now() + Math.random(), name, qty, retail });
+  }
+  saveAndRender();
+  $('addRetail').value = '';
+});
+
+$('clearAll').addEventListener('click', () => {
+  if (cart.length === 0) return;
+  if (confirm('Clear all ' + cart.length + ' line' + (cart.length === 1 ? '' : 's') + '?')) {
+    cart = [];
+    saveAndRender();
+  }
+});
+
+$('copyPitch').addEventListener('click', () => {
+  const txt = $('pitch').innerText;
+  navigator.clipboard.writeText(txt).then(() => {
+    const b = $('copyPitch');
+    b.textContent = 'Copied ✓';
+    setTimeout(() => b.textContent = 'Copy', 1500);
+  });
+});
+
+function totalUnits() { return cart.reduce((s, l) => s + l.qty, 0); }
+
+function saveAndRender() {
+  localStorage.setItem('gp_cart', JSON.stringify(cart));
+  render();
+}
+
+function onLineEdit(id, field, value) {
+  const line = cart.find(l => l.id === id);
+  if (!line) return;
+  if (field === 'qty') line.qty = Math.max(1, parseInt(value) || 1);
+  if (field === 'retail') line.retail = Math.max(0, parseFloat(value) || 0);
+  saveAndRender();
+}
+function onLineRemove(id) {
+  cart = cart.filter(l => l.id !== id);
+  saveAndRender();
+}
+window._edit = onLineEdit;
+window._rm = onLineRemove;
+
+function render() {
+  const total = totalUnits();
+  const tierKey = tierFor(total);
+  const meta = TIER_META[tierKey];
+
+  // Tier indicator
+  $('totalUnits').textContent = total.toLocaleString();
+  const badge = $('tierBadge');
+  badge.textContent = meta.label;
+  const badgeCls = {
+    opal_base: 'bg-slate-100 text-slate-700',
+    opal_t1: 'bg-blue-100 text-blue-700',
+    opal_t2: 'bg-indigo-100 text-indigo-700',
+    opal_t3: 'bg-emerald-100 text-emerald-700',
+  }[tierKey];
+  badge.className = 'tier-badge inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ' + badgeCls;
+  if (lastTier && lastTier !== tierKey) {
+    badge.classList.add('upgraded');
+    setTimeout(() => badge.classList.remove('upgraded'), 400);
+  }
+  lastTier = tierKey;
+  $('tierDiscount').textContent = meta.discount > 0 ? `−${(meta.discount * 100).toFixed(0)}% off base` : '';
+
+  if (meta.nextUnits) {
+    const needed = meta.nextUnits - total;
+    $('tierHint').innerHTML = `Add <strong>${needed}</strong> more unit${needed === 1 ? '' : 's'} to unlock <strong>${meta.nextLabel}</strong>`;
+    const prevBoundary = { opal_base: 0, opal_t1: 50, opal_t2: 100 }[tierKey] ?? 0;
+    const progress = (total - prevBoundary) / (meta.nextUnits - prevBoundary);
+    $('tierProgress').style.width = Math.min(100, Math.max(0, progress * 100)) + '%';
+  } else {
+    $('tierHint').innerHTML = `<span class="text-emerald-600 font-semibold">Max tier unlocked ✓</span>`;
+    $('tierProgress').style.width = '100%';
+  }
+
+  // Cart table
+  const tbody = $('cartBody');
+  if (cart.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-12 text-center text-slate-400 text-sm">No peptides added yet. Use the form below to build your order.</td></tr>`;
+  } else {
+    tbody.innerHTML = cart.map(l => {
+      const p = findProduct(l.name);
+      if (!p) return '';
+      const cost = p[tierKey];
+      const lineCost = cost * l.qty;
+      const lineRev = l.retail * l.qty;
+      const lineProfit = lineRev - lineCost;
+      const margin = l.retail > 0 ? lineProfit / lineRev : 0;
+      const limLabel = p.lim_retail ? `<span class="text-[11px] text-slate-400 block num">Lim: ${fmt(p.lim_retail)}</span>` : '';
+      const retailVsLim = p.lim_retail ? (
+        l.retail === p.lim_retail ? '' :
+        l.retail > p.lim_retail ? `<span class="text-[11px] text-amber-600 block">+${fmt(l.retail - p.lim_retail)}</span>` :
+        `<span class="text-[11px] text-emerald-600 block">−${fmt(p.lim_retail - l.retail)}</span>`
+      ) : '';
+      return `
+      <tr class="row-enter hover:bg-slate-50">
+        <td class="px-4 py-3">
+          <div class="font-medium text-slate-900 text-sm">${l.name}</div>
+          <div class="text-xs text-slate-400 num">Opal cost: ${fmt(cost)}/ea · ${TIER_META[tierKey].label}</div>
+        </td>
+        <td class="px-3 py-3 text-right">
+          <input type="number" min="1" value="${l.qty}" onchange="_edit(${l.id},'qty',this.value)"
+            class="w-16 text-right bg-transparent border border-slate-200 rounded px-2 py-1 num text-sm hover:border-slate-300 focus:border-indigo-500" />
+        </td>
+        <td class="px-3 py-3 text-right num text-slate-600">${fmt(cost)}</td>
+        <td class="px-3 py-3 text-right">
+          <div class="flex flex-col items-end">
+            <div class="relative">
+              <span class="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">$</span>
+              <input type="number" step="0.01" min="0" value="${l.retail.toFixed(2)}" onchange="_edit(${l.id},'retail',this.value)"
+                class="w-24 text-right bg-transparent border border-slate-200 rounded pl-5 pr-2 py-1 num text-sm hover:border-slate-300 focus:border-indigo-500" />
+            </div>
+            ${limLabel}${retailVsLim}
+          </div>
+        </td>
+        <td class="px-3 py-3 text-right num text-slate-600">${fmt(lineCost)}</td>
+        <td class="px-3 py-3 text-right num text-slate-700 font-medium">${fmt(lineRev)}</td>
+        <td class="px-3 py-3 text-right num font-semibold ${lineProfit > 0 ? 'text-emerald-600' : 'text-slate-400'}">${fmt(lineProfit)}</td>
+        <td class="px-3 py-3 text-right num text-slate-600">${fmtPct(margin)}</td>
+        <td class="px-2 py-3 text-center">
+          <button onclick="_rm(${l.id})" class="text-slate-300 hover:text-red-500 w-8 h-8 rounded hover:bg-red-50" title="Remove">×</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Totals
+  let totalCost = 0, totalRev = 0;
+  cart.forEach(l => {
+    const p = findProduct(l.name);
+    if (!p) return;
+    totalCost += p[tierKey] * l.qty;
+    totalRev  += l.retail * l.qty;
+  });
+  const totalProfit = totalRev - totalCost;
+  const weightedMargin = totalRev > 0 ? totalProfit / totalRev : 0;
+  const markup = totalCost > 0 ? totalRev / totalCost : 0;
+
+  $('footerLineCount').textContent = cart.length + ' line' + (cart.length === 1 ? '' : 's');
+  $('footerUnitCount').textContent = total + ' units';
+  $('totalCost').textContent = fmt(totalCost);
+  $('totalRevenue').textContent = fmt(totalRev);
+  $('totalProfit').textContent = fmt(totalProfit);
+  $('weightedMargin').textContent = cart.length ? fmtPct(weightedMargin) : '—';
+
+  $('sCost').textContent = fmt(totalCost);
+  $('sCostDetail').textContent = cart.length ? `${total} units @ ${meta.label}` : 'No items';
+  $('sRev').textContent = fmt(totalRev);
+  $('sRevDetail').textContent = cart.length ? 'At clinic retail' : '—';
+  $('sMargin').textContent = cart.length ? fmtPct(weightedMargin) : '—';
+  $('sMarkup').textContent = cart.length ? fmtX(markup) + ' markup' : '—';
+  $('sProfit').textContent = fmt(totalProfit);
+  $('sProfitDetail').textContent = cart.length ? `on ${fmt(totalRev)} revenue` : 'Per order';
+
+  // Tier what-if table (hold revenue constant, swap cost)
+  const tierRows = ['opal_base', 'opal_t1', 'opal_t2', 'opal_t3'].map(tk => {
+    let tc = 0;
+    cart.forEach(l => {
+      const p = findProduct(l.name);
+      if (p) tc += p[tk] * l.qty;
+    });
+    const tp = totalRev - tc;
+    const tm = totalRev > 0 ? tp / totalRev : 0;
+    const hl = tk === tierKey ? 'bg-indigo-50 font-semibold' : '';
+    const unlocked = tk === 'opal_base' || total >= { opal_t1: 50, opal_t2: 100, opal_t3: 150 }[tk];
+    const lockIcon = unlocked ? '' : ' <span class="text-[10px] text-slate-400">(locked)</span>';
+    return `<tr class="${hl}">
+      <td class="py-2 text-slate-700">${TIER_META[tk].label}${lockIcon}</td>
+      <td class="text-right py-2">${fmt(tc)}</td>
+      <td class="text-right py-2 ${tp > 0 ? 'text-emerald-600' : 'text-slate-400'}">${fmt(tp)}</td>
+      <td class="text-right py-2 text-slate-600">${fmtPct(tm)}</td>
+    </tr>`;
+  }).join('');
+  $('tierTable').innerHTML = tierRows;
+
+  // Run-rate
+  $('rrMonth').textContent = fmt(totalProfit);
+  $('rrYear').textContent = fmt(totalProfit * 12);
+  $('rrSpend').textContent = fmt(totalCost);
+  $('rrSpendYr').textContent = fmt(totalCost * 12);
+  $('rrNote').textContent = cart.length
+    ? `Assumes this same order ships every month. Year-one clinic spend: ${fmt(totalCost * 12)}. Year-one gross profit: ${fmt(totalProfit * 12)}.`
+    : 'Build an order above to see projected run-rate.';
+
+  // Sales pitch
+  const pitchEl = $('pitch');
+  if (cart.length === 0) {
+    pitchEl.textContent = 'Add peptides to the order to generate a pitch summary.';
+  } else if (totalProfit <= 0) {
+    pitchEl.textContent = 'Your retail prices are at or below cost — raise retail to unlock margin.';
+  } else {
+    const topLine = cart.slice().sort((a, b) => {
+      const pa = findProduct(a.name), pb = findProduct(b.name);
+      return ((b.retail - pb[tierKey]) * b.qty) - ((a.retail - pa[tierKey]) * a.qty);
+    })[0];
+    const top = findProduct(topLine.name);
+    const topProfit = (topLine.retail - top[tierKey]) * topLine.qty;
+    const lineSummary = cart.length === 1
+      ? `<strong>${cart[0].name}</strong>`
+      : `<strong>${cart.length} peptides</strong> (${total} total units)`;
+    pitchEl.innerHTML = `
+      Order ${lineSummary} from Genesis at <strong>${meta.label}</strong> pricing.
+      Total clinic spend: <strong>${fmt(totalCost)}</strong> · total patient revenue: <strong>${fmt(totalRev)}</strong>.
+      That's <strong class="text-emerald-300">${fmt(totalProfit)}</strong> gross profit per order
+      (<strong>${fmtPct(weightedMargin)}</strong> margin, <strong>${fmtX(markup)}</strong> markup over Opal cost).
+      ${cart.length > 1 ? `Biggest driver: <strong>${topLine.name}</strong> at ${fmt(topProfit)} profit.` : ''}
+      <br><span class="text-indigo-200">Monthly re-order: <strong>${fmt(totalProfit)}</strong> / mo · <strong>${fmt(totalProfit * 12)}</strong> annualized.</span>
+    `;
+  }
+
+  updateAddHint();
+}
+
+// Seed with a demo line on first load
+if (cart.length === 0) {
+  cart = [
+    { id: Date.now(), name: 'BPC-157 (10mg)', qty: 25, retail: 99.99 },
+    { id: Date.now() + 1, name: 'Semaglutide (5mg)', qty: 25, retail: 98.99 },
+  ];
+  saveAndRender();
+} else {
+  render();
+}
+</script>
+
+</body>
+</html>
