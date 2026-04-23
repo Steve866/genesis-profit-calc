@@ -39,13 +39,28 @@
   <header class="mb-6 flex items-end justify-between">
     <div>
       <h1 class="text-3xl font-semibold tracking-tight">Profit Calculator</h1>
-      <p class="text-slate-500 mt-1">Build a multi-peptide order. Opal tier auto-applies based on total units. Compared to Limitless retail.</p>
+      <p class="text-slate-500 mt-1" id="subhead">Build a multi-peptide order. Opal tier auto-applies based on total units.</p>
     </div>
     <div class="text-right">
       <div class="text-xs uppercase tracking-wider text-slate-400">Genesis Peptides</div>
       <div class="text-sm text-slate-600">Sales tool · April 2026</div>
     </div>
   </header>
+
+  <!-- Tab switcher -->
+  <div class="mb-6 border-b border-slate-200">
+    <nav class="flex gap-1" aria-label="Tabs">
+      <button data-tab="order" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600">
+        Order Calculator
+      </button>
+      <button data-tab="protocol" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+        Protocol Forecaster
+      </button>
+    </nav>
+  </div>
+
+  <!-- =========================== TAB: ORDER =========================== -->
+  <div id="tab-order" class="tab-panel">
 
   <!-- Tier indicator -->
   <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-4 flex items-center gap-6">
@@ -217,6 +232,154 @@
     </div>
     <div class="text-lg leading-relaxed" id="pitch">Add peptides to the order to generate a pitch summary.</div>
   </div>
+
+  </div><!-- /tab-order -->
+
+  <!-- =========================== TAB: PROTOCOL =========================== -->
+  <div id="tab-protocol" class="tab-panel hidden">
+
+    <!-- Protocol setup -->
+    <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+
+        <div class="md:col-span-5">
+          <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Protocol</label>
+          <select id="pfProtocol" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-medium"></select>
+          <div id="pfProtocolDesc" class="text-xs text-slate-500 mt-2"></div>
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Clients</label>
+          <input id="pfClients" type="number" min="1" value="20" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm num" />
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Months</label>
+          <input id="pfMonths" type="number" min="1" value="3" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm num" />
+        </div>
+
+        <div class="md:col-span-3">
+          <label class="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Retail / client / month</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+            <input id="pfRetail" type="number" step="1" min="0" value="350" class="w-full bg-white border border-slate-300 rounded-lg pl-6 pr-3 py-2 text-sm num" />
+          </div>
+          <div class="text-xs text-slate-500 mt-1">What the clinic charges each patient per month</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Dosing table -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm mb-6 overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-semibold text-slate-700">Dosing plan (vials per patient per month)</h3>
+          <p class="text-xs text-slate-500 mt-1">Edit vials/month if your protocol differs. Use fractional values (e.g. 0.5) for less-than-monthly cycles.</p>
+        </div>
+        <button id="pfAddLineBtn" class="text-xs font-medium text-indigo-600 hover:text-indigo-700 border border-indigo-200 hover:border-indigo-400 px-3 py-1.5 rounded">+ Add peptide</button>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50">
+          <tr class="text-xs font-medium text-slate-500 uppercase tracking-wider">
+            <th class="text-left px-4 py-2 w-[40%]">Peptide</th>
+            <th class="text-right px-3 py-2">Vials/client/mo</th>
+            <th class="text-right px-3 py-2">Opal cost/vial</th>
+            <th class="text-right px-3 py-2">Vials needed</th>
+            <th class="text-right px-3 py-2">Line cost</th>
+            <th class="w-10"></th>
+          </tr>
+        </thead>
+        <tbody id="pfBody" class="divide-y divide-slate-100"></tbody>
+      </table>
+    </div>
+
+    <!-- Totals -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+
+      <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Vials Needed</div>
+        <div class="text-2xl font-semibold num mt-1" id="pfVials">0</div>
+        <div class="text-xs text-slate-500 mt-1">
+          <span id="pfTierLabel">Base tier</span> applied
+          <span id="pfTierSave" class="text-emerald-600 ml-1"></span>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Clinic Cost (Opal)</div>
+        <div class="text-2xl font-semibold num mt-1" id="pfCost">$0.00</div>
+        <div class="text-xs text-slate-500 mt-1" id="pfCostDetail">Over the period</div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+        <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Patient Revenue</div>
+        <div class="text-2xl font-semibold num mt-1" id="pfRev">$0.00</div>
+        <div class="text-xs text-slate-500 mt-1" id="pfRevDetail"></div>
+      </div>
+
+      <div class="bg-indigo-600 text-white rounded-xl p-5 shadow-sm">
+        <div class="text-xs font-medium text-indigo-200 uppercase tracking-wider">Practitioner Profit</div>
+        <div class="text-2xl font-semibold num mt-1" id="pfProfit">$0.00</div>
+        <div class="text-xs text-indigo-200 mt-1"><span id="pfMargin">—</span> margin</div>
+      </div>
+
+    </div>
+
+    <!-- Breakdown -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+        <h3 class="text-sm font-semibold text-slate-700 mb-4">Per-Client / Per-Month Breakdown</h3>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Cost / client / mo</div>
+            <div class="text-lg font-semibold num mt-1" id="pfCostPerCM">$0.00</div>
+          </div>
+          <div>
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Profit / client / mo</div>
+            <div class="text-lg font-semibold num text-emerald-600 mt-1" id="pfProfitPerCM">$0.00</div>
+          </div>
+          <div>
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Profit / client (whole program)</div>
+            <div class="text-lg font-semibold num mt-1" id="pfProfitPerClient">$0.00</div>
+          </div>
+          <div>
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Profit / month (all clients)</div>
+            <div class="text-lg font-semibold num mt-1" id="pfProfitPerMo">$0.00</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+        <h3 class="text-sm font-semibold text-slate-700 mb-1">Annualized Run-Rate</h3>
+        <p class="text-xs text-slate-500 mb-4">If the practice maintains this caseload year-round.</p>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Annual revenue</div>
+            <div class="text-xl font-semibold num mt-1" id="pfAnnualRev">$0.00</div>
+          </div>
+          <div>
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Annual cost</div>
+            <div class="text-xl font-semibold num mt-1" id="pfAnnualCost">$0.00</div>
+          </div>
+          <div class="col-span-2 pt-3 border-t border-slate-100">
+            <div class="text-xs font-medium text-slate-500 uppercase tracking-wider">Annual profit</div>
+            <div class="text-2xl font-semibold num text-emerald-600 mt-1" id="pfAnnualProfit">$0.00</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Protocol pitch -->
+    <div class="bg-gradient-to-r from-slate-900 to-indigo-900 text-white rounded-xl p-6 shadow-sm mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold uppercase tracking-wider text-indigo-200">Protocol Pitch Summary</h3>
+        <button id="pfCopyPitch" class="text-xs font-medium text-indigo-200 hover:text-white border border-indigo-700 hover:border-indigo-500 px-3 py-1 rounded">Copy</button>
+      </div>
+      <div class="text-lg leading-relaxed" id="pfPitch">Pick a protocol above to generate a pitch.</div>
+    </div>
+
+  </div><!-- /tab-protocol -->
 
   <footer class="text-center text-xs text-slate-400 mt-8">
     Data source: Master Price Model.xlsx · Opal tiers: Base / 50+ (−5%) / 100+ (−10%) / 150+ (−15%) · Tier applied to entire order based on total units
@@ -545,6 +708,266 @@ function render() {
 
   updateAddHint();
 }
+
+// ==================== PROTOCOL FORECASTER ====================
+
+const PROTOCOLS = [
+  { id: 'wolverine', name: 'Wolverine Stack — Healing/Recovery',
+    desc: 'BPC-157 + TB-500 blend for tendon, joint, and soft-tissue repair.',
+    lines: [{ product: 'BPC-157 + TB-500 (10mg+10mg)', vpm: 1 }], retail: 350 },
+  { id: 'glp1-sema', name: 'Weight Loss — Compounded Semaglutide',
+    desc: 'GLP-1 weekly injection for weight management.',
+    lines: [{ product: 'Semaglutide (5mg)', vpm: 1 }], retail: 299 },
+  { id: 'glp1-tirz', name: 'Weight Loss — Compounded Tirzepatide',
+    desc: 'Dual GLP-1/GIP weekly injection, stronger weight loss profile.',
+    lines: [{ product: 'Tirzepatide (10mg)', vpm: 1 }], retail: 399 },
+  { id: 'gh-stack', name: 'Growth Hormone Stack — CJC + Ipamorelin',
+    desc: 'CJC-1295 (no DAC) + Ipamorelin for GH pulse, lean mass, recovery, sleep.',
+    lines: [{ product: 'CJC-1295 (no DAC) + Ipamorelin (5mg+5mg)', vpm: 2 }], retail: 449 },
+  { id: 'sermorelin', name: 'Sermorelin HGH Therapy',
+    desc: 'Nightly sermorelin injection, anti-aging / recovery.',
+    lines: [{ product: 'Sermorelin (10mg)', vpm: 1 }], retail: 299 },
+  { id: 'thymosin', name: 'Thymosin Alpha-1 Immune Protocol',
+    desc: 'Immune optimization, 2–3× weekly sub-Q injection.',
+    lines: [{ product: 'Thymosin Alpha 1 (10mg)', vpm: 1 }], retail: 399 },
+  { id: 'pt141', name: 'PT-141 Sexual Health',
+    desc: 'On-demand bremelanotide injection for libido/arousal.',
+    lines: [{ product: 'PT-141 (10mg)', vpm: 0.5 }], retail: 199 },
+  { id: 'ghkcu', name: 'GHK-Cu Skin / Hair / Connective Tissue',
+    desc: 'Copper peptide for skin quality, hair, tendon repair.',
+    lines: [{ product: 'GHK-CU (50mg)', vpm: 1 }], retail: 249 },
+  { id: 'dsip', name: 'DSIP Sleep Optimization',
+    desc: 'Delta sleep-inducing peptide, nightly.',
+    lines: [{ product: 'DSIP (5mg)', vpm: 1 }], retail: 199 },
+  { id: 'epitalon', name: 'Epitalon Longevity Cycle',
+    desc: 'Telomere-related peptide. 10-day cycle quarterly = ~0.33 vials/mo avg.',
+    lines: [{ product: 'Epitalon (10mg)', vpm: 0.33 }], retail: 149 },
+  { id: 'nad', name: 'NAD+ Longevity (Injection)',
+    desc: 'Sub-Q NAD+ injections, ~150mg 3× weekly.',
+    lines: [{ product: 'NAD+ (500mg)', vpm: 2 }], retail: 349 },
+  { id: 'kpv', name: 'KPV Gut / Anti-inflammatory',
+    desc: 'Anti-inflammatory peptide for GI and skin inflammation.',
+    lines: [{ product: 'KPV (5mg)', vpm: 1 }], retail: 249 },
+  { id: 'mots', name: 'MOTS-c Metabolic',
+    desc: 'Mitochondrial peptide for metabolism and insulin sensitivity.',
+    lines: [{ product: 'MOTS-c (10mg)', vpm: 1 }], retail: 349 },
+  { id: 'longevity-triple', name: 'Longevity Triple Stack',
+    desc: 'Epitalon + Thymosin Alpha-1 + MOTS-c — anti-aging signature protocol.',
+    lines: [
+      { product: 'Epitalon (10mg)', vpm: 0.33 },
+      { product: 'Thymosin Alpha 1 (10mg)', vpm: 1 },
+      { product: 'MOTS-c (10mg)', vpm: 1 },
+    ], retail: 799 },
+  { id: 'recovery-triple', name: 'Elite Recovery Stack',
+    desc: 'BPC+TB-500 blend + GHK-Cu + GH peptide blend — max tissue repair.',
+    lines: [
+      { product: 'BPC-157 + TB-500 (10mg+10mg)', vpm: 1 },
+      { product: 'GHK-CU (50mg)', vpm: 1 },
+      { product: 'CJC-1295 (no DAC) + Ipamorelin (5mg+5mg)', vpm: 2 },
+    ], retail: 799 },
+  { id: 'custom', name: '— Custom Protocol —',
+    desc: 'Build your own dosing plan from scratch.',
+    lines: [], retail: 0 },
+];
+
+// Populate protocol dropdown
+const pfSel = $('pfProtocol');
+PROTOCOLS.forEach(p => {
+  const opt = document.createElement('option');
+  opt.value = p.id;
+  opt.textContent = p.name;
+  pfSel.appendChild(opt);
+});
+
+// State — custom dosing override
+let pfLines = [];  // [{id, product, vpm}]
+
+function loadProtocol(id) {
+  const proto = PROTOCOLS.find(p => p.id === id);
+  if (!proto) return;
+  $('pfProtocolDesc').textContent = proto.desc;
+  if (id !== 'custom') {
+    $('pfRetail').value = proto.retail;
+    pfLines = proto.lines.map(l => ({ id: Date.now() + Math.random(), product: l.product, vpm: l.vpm }));
+  }
+  pfRender();
+}
+
+function pfAddLine() {
+  // Pick a default product if cart is empty
+  const defaultProduct = pfLines.length > 0 ? sorted[0].name : 'BPC-157 (10mg)';
+  pfLines.push({ id: Date.now() + Math.random(), product: defaultProduct, vpm: 1 });
+  pfRender();
+}
+function pfUpdateLine(id, field, value) {
+  const line = pfLines.find(l => l.id === id);
+  if (!line) return;
+  if (field === 'product') line.product = value;
+  if (field === 'vpm') line.vpm = Math.max(0, parseFloat(value) || 0);
+  pfRender();
+}
+function pfRemoveLine(id) {
+  pfLines = pfLines.filter(l => l.id !== id);
+  pfRender();
+}
+window._pfU = pfUpdateLine;
+window._pfR = pfRemoveLine;
+
+function pfRender() {
+  const clients = Math.max(1, parseInt($('pfClients').value) || 1);
+  const months = Math.max(1, parseInt($('pfMonths').value) || 1);
+  const retailPerCM = Math.max(0, parseFloat($('pfRetail').value) || 0);
+
+  // Compute total vials needed across all lines
+  let totalVials = 0;
+  const lineCalcs = pfLines.map(l => {
+    const p = findProduct(l.product);
+    const vialsNeeded = Math.ceil(l.vpm * clients * months);
+    totalVials += vialsNeeded;
+    return { line: l, product: p, vialsNeeded };
+  });
+
+  // Tier determined by total vials
+  const tierKey = tierFor(totalVials);
+  const tierMeta = TIER_META[tierKey];
+
+  // Compute line costs
+  let totalCost = 0;
+  lineCalcs.forEach(lc => {
+    if (!lc.product) return;
+    const costPerVial = lc.product[tierKey];
+    lc.costPerVial = costPerVial;
+    lc.lineCost = costPerVial * lc.vialsNeeded;
+    totalCost += lc.lineCost;
+  });
+
+  const totalRev = retailPerCM * clients * months;
+  const totalProfit = totalRev - totalCost;
+  const margin = totalRev > 0 ? totalProfit / totalRev : 0;
+
+  // Render dosing table
+  const productOptions = sorted.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+  if (lineCalcs.length === 0) {
+    $('pfBody').innerHTML = `<tr><td colspan="6" class="px-4 py-12 text-center text-slate-400 text-sm">No peptides in this protocol. Click "+ Add peptide" to build a custom one.</td></tr>`;
+  } else {
+    $('pfBody').innerHTML = lineCalcs.map(lc => {
+      const l = lc.line;
+      return `
+      <tr class="row-enter hover:bg-slate-50">
+        <td class="px-4 py-2">
+          <select onchange="_pfU(${l.id},'product',this.value)" class="w-full bg-transparent border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded px-2 py-1 text-sm">
+            ${sorted.map(p => `<option value="${p.name}" ${p.name===l.product?'selected':''}>${p.name}</option>`).join('')}
+          </select>
+        </td>
+        <td class="px-3 py-2 text-right">
+          <input type="number" step="0.25" min="0" value="${l.vpm}" onchange="_pfU(${l.id},'vpm',this.value)"
+            class="w-20 text-right bg-transparent border border-slate-200 rounded px-2 py-1 num text-sm" />
+        </td>
+        <td class="px-3 py-2 text-right num text-slate-600">${fmt(lc.costPerVial)}</td>
+        <td class="px-3 py-2 text-right num text-slate-600">${lc.vialsNeeded}</td>
+        <td class="px-3 py-2 text-right num text-slate-700 font-medium">${fmt(lc.lineCost)}</td>
+        <td class="px-2 py-2 text-center">
+          <button onclick="_pfR(${l.id})" class="text-slate-300 hover:text-red-500 w-7 h-7 rounded hover:bg-red-50">×</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Totals
+  $('pfVials').textContent = totalVials.toLocaleString();
+  $('pfTierLabel').textContent = tierMeta.label;
+  if (tierMeta.discount > 0) {
+    // savings vs base
+    let baseCost = 0;
+    lineCalcs.forEach(lc => { if (lc.product) baseCost += lc.product.opal_base * lc.vialsNeeded; });
+    const save = baseCost - totalCost;
+    $('pfTierSave').textContent = save > 0 ? `· saves ${fmt(save)}` : '';
+  } else {
+    $('pfTierSave').textContent = '';
+  }
+
+  $('pfCost').textContent = fmt(totalCost);
+  $('pfCostDetail').textContent = `${totalVials} vials · ${months} month${months===1?'':'s'}`;
+
+  $('pfRev').textContent = fmt(totalRev);
+  $('pfRevDetail').textContent = `${clients} client${clients===1?'':'s'} × ${fmt(retailPerCM)}/mo × ${months} mo`;
+
+  $('pfProfit').textContent = fmt(totalProfit);
+  $('pfMargin').textContent = fmtPct(margin);
+
+  // Per-client / per-month
+  const costPerCM = clients > 0 && months > 0 ? totalCost / (clients * months) : 0;
+  const profitPerCM = retailPerCM - costPerCM;
+  $('pfCostPerCM').textContent = fmt(costPerCM);
+  $('pfProfitPerCM').textContent = fmt(profitPerCM);
+  $('pfProfitPerClient').textContent = fmt(profitPerCM * months);
+  $('pfProfitPerMo').textContent = fmt(profitPerCM * clients);
+
+  // Annualized
+  const annualRev = retailPerCM * clients * 12;
+  const annualCost = costPerCM * clients * 12;
+  const annualProfit = annualRev - annualCost;
+  $('pfAnnualRev').textContent = fmt(annualRev);
+  $('pfAnnualCost').textContent = fmt(annualCost);
+  $('pfAnnualProfit').textContent = fmt(annualProfit);
+
+  // Pitch
+  const protoName = pfSel.options[pfSel.selectedIndex]?.text || 'this protocol';
+  if (lineCalcs.length === 0 || totalProfit <= 0) {
+    $('pfPitch').textContent = lineCalcs.length === 0
+      ? 'Add peptides to the protocol to generate a pitch.'
+      : 'Retail is below cost — raise retail / month to unlock margin.';
+  } else {
+    $('pfPitch').innerHTML = `
+      Running <strong>${protoName.replace(/^— | —$/g,'')}</strong> on
+      <strong>${clients} client${clients===1?'':'s'}</strong> for
+      <strong>${months} month${months===1?'':'s'}</strong> at
+      <strong>${fmt(retailPerCM)}/client/month</strong>.
+      <br>Total clinic spend: <strong>${fmt(totalCost)}</strong> (${totalVials} vials at ${tierMeta.label}).
+      Patient revenue: <strong>${fmt(totalRev)}</strong>.
+      <strong class="text-emerald-300">Practitioner profit: ${fmt(totalProfit)}</strong>
+      (<strong>${fmtPct(margin)}</strong> margin · <strong>${fmt(profitPerCM)}</strong> per client per month).
+      <br><span class="text-indigo-200">Annualized at this caseload: <strong>${fmt(annualProfit)}</strong> gross profit / year.</span>
+    `;
+  }
+}
+
+// Wire up forecaster events
+$('pfProtocol').addEventListener('change', e => loadProtocol(e.target.value));
+$('pfClients').addEventListener('input', pfRender);
+$('pfMonths').addEventListener('input', pfRender);
+$('pfRetail').addEventListener('input', pfRender);
+$('pfAddLineBtn').addEventListener('click', pfAddLine);
+$('pfCopyPitch').addEventListener('click', () => {
+  const txt = $('pfPitch').innerText;
+  navigator.clipboard.writeText(txt).then(() => {
+    const b = $('pfCopyPitch');
+    b.textContent = 'Copied ✓';
+    setTimeout(() => b.textContent = 'Copy', 1500);
+  });
+});
+
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      const isActive = b.dataset.tab === tab;
+      b.classList.toggle('border-indigo-600', isActive);
+      b.classList.toggle('text-indigo-600', isActive);
+      b.classList.toggle('border-transparent', !isActive);
+      b.classList.toggle('text-slate-500', !isActive);
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    document.getElementById('tab-' + tab).classList.remove('hidden');
+    $('subhead').textContent = tab === 'order'
+      ? 'Build a multi-peptide order. Opal tier auto-applies based on total units.'
+      : 'Forecast profit when patients are on a specific protocol. Plug in caseload and duration.';
+  });
+});
+
+// Initialize forecaster with Wolverine
+loadProtocol('wolverine');
 
 // Seed with a demo line on first load
 if (cart.length === 0) {
